@@ -9,6 +9,9 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+design/
+some/
+PANTSUPARSER.ini
 develop-eggs/
 dist/
 downloads/
@@ -23,6 +26,7 @@ wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
+parser_data.json
 *.egg
 MANIFEST
 

@@ -16,7 +16,7 @@ import tkinter.messagebox
 import traceback
 
 SLEEP_TIME = 60 * 5
-VERSION = 0.08
+VERSION = 0.12
 NAME = 'PantsuParser'
 
 
@@ -70,41 +70,41 @@ def get_magnet(magnet: str, title: str):
     toast.show_toast()
 
 
-def parse_nyaapantsu():
-    TOKEN = get_config()['USER']['token']
-    USERNAME = get_config()['USER']['username']
-    for title in update_or_get_parser_data(get=True)['titles']:
-        params = {
-            'headers': {'Authorization': TOKEN},
-            'params': {'username': USERNAME, 'q': title, 'maxage': '1'},
-            }
-        parser_data = update_or_get_parser_data(get=True)
-        url = get_config()['URLS']['nyaapantsu_api']
-        response = requests.get(url, **params).json()
-        for torrent in response['torrents']:
-            flag = False
-            for relation in parser_data['relations']:
-                if (
-                        relation.split('->')[0] in torrent['name']
-                        and relation.split('->')[-1] in torrent['name']
-                        and torrent['name'] not in parser_data['nyaapantsu']
-                        ):
-                    update_or_get_parser_data('nyaapantsu', torrent['name'])
-                    get_magnet(torrent['magnet'], torrent['name'])
-                    flag = True
-            if not flag:
-                for raw in parser_data['raws']:
-                    if (
-                            raw in torrent['name']
-                            and torrent['name']
-                            not in parser_data['nyaapantsu']
-                            ):
-                        update_or_get_parser_data(
-                            'nyaapantsu',
-                            torrent['name']
-                        )
-                        get_magnet(torrent['magnet'], torrent['name'])
-                        flag = True
+def parse_nyaapantsu_xml(key):
+    parser_data = update_or_get_parser_data(get=True)
+    url = get_config()['URLS'][f'{key}_xml']
+    response = requests.get(url)
+    doc = xml.parseString(response.text)
+    title_tags = doc.getElementsByTagName('title')
+    link_tags = doc.getElementsByTagName('link')
+    torrents = {}
+    for i in range(len(link_tags)):
+        title = title_tags[i].firstChild.nodeValue.split('[GJ.Y] ')[-1]
+        if 'nyaa pantsu' not in title.lower():
+            torrents[title] = link_tags[i].firstChild.nodeValue
+    for torrent in torrents:
+        for title in parser_data['titles']:
+            if title in torrent:
+                flag = False
+                if torrent not in parser_data['nyaapantsu']:
+                    for relation in parser_data['relations']:
+                        if relation.split('->')[-1] in torrent:
+                            if relation.split('->')[0] in torrent:
+                                update_or_get_parser_data(
+                                    key,
+                                    torrent
+                                )
+                                get_magnet(torrents[torrent], torrent)
+                                flag = True
+                    if not flag:
+                        for raw in parser_data['raws']:
+                            if raw in torrent:
+                                update_or_get_parser_data(
+                                    key,
+                                    torrent
+                                )
+                                get_magnet(torrents[torrent], torrent)
+                                flag = True
 
 
 def parse_erai_raws_or_subsplease(key: str):
@@ -130,7 +130,7 @@ def parse_erai_raws_or_subsplease(key: str):
         title = title.split(tag_2)[0]
         if author not in title.lower():
             torrents[title] = link_tags[i].firstChild.nodeValue
-    for i, torrent in enumerate(torrents):
+    for torrent in torrents:
         for title in parser_data['titles']:
             if title in torrent:
                 flag = False
@@ -157,12 +157,11 @@ def parse_erai_raws_or_subsplease(key: str):
 def parse():
     while get_config()['USER'].getboolean('status'):
         try:
-            parse_nyaapantsu()
             parse_erai_raws_or_subsplease('erai_raws')
             parse_erai_raws_or_subsplease('subsplease')
+            parse_nyaapantsu_xml('nyaapantsu')
         except Exception:
-            error_message = traceback.format_exc()
-            tkinter.messagebox.showerror('Ошибка', error_message)
+            tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
         finally:
             time.sleep(SLEEP_TIME)
 
@@ -190,7 +189,6 @@ master.title(f'{NAME} v{VERSION}')
 master.geometry(set_geometry(master))
 master.resizable(False, False)
 master.iconbitmap(resource_path('ico.ico'))
-
 
 img = Image.open(resource_path('background.png'))
 raw_img = ImageTk.PhotoImage(img)

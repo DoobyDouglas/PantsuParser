@@ -3,9 +3,11 @@ from data import (
     update_or_get_parser_data,
     update_downloads,
     update_data_manager,
+    update_resolutions,
 )
 from utilitss import resource_path
 from functools import partial
+import json
 
 
 def on_closing(window, master):
@@ -49,6 +51,13 @@ def settings(master: ttk.Window):
 
     master.nametowidget('settings').configure(state='disabled')
     parser_data = update_or_get_parser_data(get=True)
+    if 'resolutions' not in parser_data:
+        with open('parser_data.json', 'r', encoding='utf-8') as json_file:
+            data = json.load(json_file)
+        data['resolutions'] = {}
+        with open('parser_data.json', 'w', encoding='utf-8') as json_file:
+            json.dump(data, json_file)
+        parser_data = update_or_get_parser_data(get=True)
     master_geometry_x = master.geometry().split('+')[0].split('x')[0]
     master_geometry_y = master.geometry().split('+')[0].split('x')[1]
     master_position = master.geometry().split('x')[1].split('+')[1:]
@@ -134,15 +143,15 @@ def settings(master: ttk.Window):
         frame_4_rsltns_raws,
         name='entry_raw',
         bootstyle='info',
-        width=15,
+        width=18,
     )
-    raw_entry.pack(side='left', padx=10, pady=10)
+    raw_entry.pack(side='left', padx=7, pady=10)
     add_raw_bttn = ttk.Button(
         frame_4_rsltns_raws,
         bootstyle='info',
         text='Add Raw',
         name='add_raw',
-        width=10,
+        width=8,
         command=lambda: update_or_get_parser_data(
             'raws',
             raw_entry.get(),
@@ -150,6 +159,10 @@ def settings(master: ttk.Window):
         ),
     )
     add_raw_bttn.pack(side='right', padx=10)
+
+    resolutions_frame = ttk.Frame(rsltns_raws_frame, name='resolutions_frame')
+    resolutions_frame.place(x=10, y=45)
+    update_resolutions(resolutions_frame, master)
 
     window.focus_force()
     window.mainloop()

@@ -4,6 +4,7 @@ from tkinter import filedialog
 import ttkbootstrap as ttk
 from tkinter import messagebox
 
+
 DEFAULT_RAWS = [
     'Erai-raws',
     'SubsPlease',
@@ -12,6 +13,62 @@ DEFAULT_RAWS = [
     'Baha',
     'CR',
 ]
+
+RESOLUTIONS_DICT = {
+    '480': 'SD',
+    '720': '720p',
+    '1080': '1080p',
+}
+
+
+def update_resolutions(
+        frame: ttk.Frame,
+        master: ttk.Window,
+        ):
+    rsltns_select = ['480', '720', '1080']
+    raw_names = {0: 'Erai-raws', 1: 'SubsPlease'}
+    parser_data = update_or_get_parser_data(get=True)
+    # if 'resolutions' not in parser_data:
+    #     with open('parser_data.json', 'r', encoding='utf-8') as json_file:
+    #         data = json.load(json_file)
+    #     data['resolutions'] = {}
+    #     with open('parser_data.json', 'w', encoding='utf-8') as json_file:
+    #         json.dump(data, json_file)
+    #     parser_data = update_or_get_parser_data(get=True)
+    for i in range(2):
+        kwargs = {}
+        if raw_names[i].lower() in parser_data['resolutions']:
+            kwargs['bootstyle'] = 'success'
+            kwargs['text'] = 'Saved'
+            value = parser_data['resolutions'][raw_names[i].lower()]
+        else:
+            kwargs['bootstyle'] = 'info'
+            kwargs['text'] = 'Save'
+            value = rsltns_select[1]
+        name = ttk.Label(frame, text=raw_names[i])
+        name.grid(row=i, column=0, pady=5, sticky='w')
+        combobox = ttk.Combobox(
+            frame,
+            values=rsltns_select,
+            state='readonly',
+            width=5,
+        )
+        combobox.grid(row=i, column=1, pady=5, padx=6)
+        combobox.set(value)
+        button = ttk.Button(
+            frame,
+            width=8,
+            command=(
+                lambda name=name,
+                combobox=combobox: update_or_get_parser_data(
+                    'resolutions',
+                    f'{name.cget("text").lower()}->{combobox.get()}',
+                    master=master,
+                )
+            ),
+            **kwargs
+        )
+        button.grid(row=i, column=2, pady=5, padx=5)
 
 
 def update_raw_select(master: ttk.Window):
@@ -33,6 +90,14 @@ def update_raw_select(master: ttk.Window):
             json.dump(data, json_file)
         parser_data = update_or_get_parser_data(get=True)
         update_raw_select(master)
+        try:
+            dt_mngr = master.nametowidget(
+                    'settings_toplevel.!notebook.'
+                    '!frame2.!canvas.frame_4_dt_mngr'
+                )
+            update_data_manager(None, dt_mngr, master=master)
+        except KeyError:
+            pass
     raw_select.set(parser_data['raws'][0])
     return raw_select
 
@@ -164,6 +229,20 @@ def path_choice(
         elif master:
             kwargs['master'] = master
         save_download_path(**kwargs)
+        try:
+            dwnlds = master.nametowidget(
+                'settings_toplevel.!notebook.!frame.!canvas.frame_4_dwnlds'
+            )
+            update_downloads(dwnlds)
+            dt_mngr = master.nametowidget(
+                'settings_toplevel.!notebook.!frame2.!canvas.frame_4_dt_mngr'
+            )
+            update_data_manager(None, dt_mngr, master=master)
+            update_rsltns_raws(master)
+        except KeyError:
+            pass
+        except IndexError:
+            pass
 
 
 def update_or_get_parser_data(
@@ -184,6 +263,7 @@ def update_or_get_parser_data(
                 'nyaapantsu': [],
                 'erai-raws': [],
                 'subsplease': [],
+                'resolutions': {},
             }
             json.dump(parser_data, json_file)
     with open('parser_data.json', 'r', encoding='utf-8') as json_file:
@@ -205,6 +285,10 @@ def update_or_get_parser_data(
                     data['titles'].append(value.split('->')[0])
             elif key == 'raws' and value != '':
                 data[key].append(value)
+            elif key == 'resolutions':
+                data[key][value.split('->')[0]] = value.split('->')[1]
+            else:
+                data[key].append(value)
     with open('parser_data.json', 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file)
     if frame:
@@ -221,6 +305,10 @@ def update_or_get_parser_data(
             )
             update_data_manager(None, dt_mngr, master=master)
             update_rsltns_raws(master)
+            rsltns = master.nametowidget(
+                'settings_toplevel.!notebook.!frame3.resolutions_frame'
+            )
+            update_resolutions(rsltns, master)
         except KeyError:
             pass
         except IndexError:

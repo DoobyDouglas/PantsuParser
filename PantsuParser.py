@@ -6,7 +6,12 @@ import xml.dom.minidom as xml
 import ttkbootstrap as ttk
 from config import get_config, status_change
 from settings import settings
-from data import update_or_get_parser_data, path_choice, update_raw_select
+from data import (
+    update_or_get_parser_data,
+    path_choice,
+    update_raw_select,
+    RESOLUTIONS_DICT,
+)
 from utilitss import resource_path, set_geometry
 import os
 import tkinter
@@ -19,7 +24,7 @@ import pystray
 
 
 SLEEP_TIME = 60 * 5
-VERSION = 0.31
+VERSION = 0.36
 NAME = 'PantsuParser'
 
 
@@ -84,7 +89,7 @@ def get_magnet(
     thread.start()
 
 
-def parse_nyaapantsu_xml(key):
+def parse_nyaapantsu_xml(key: str, master: ttk.Window):
     parser_data = update_or_get_parser_data(get=True)
     url = get_config()['URLS'][f'{key}_xml']
     response = requests.get(url)
@@ -99,7 +104,6 @@ def parse_nyaapantsu_xml(key):
     for torrent in torrents:
         for title in parser_data['titles']:
             if title in torrent:
-                flag = False
                 if torrent not in parser_data['nyaapantsu']:
                     for relation in parser_data['relations']:
                         if relation.split('->')[-1] in torrent:
@@ -108,7 +112,8 @@ def parse_nyaapantsu_xml(key):
                                 number = number[1]
                                 update_or_get_parser_data(
                                     key,
-                                    torrent
+                                    torrent,
+                                    master=master,
                                 )
                                 get_magnet(
                                     torrents[torrent],
@@ -116,38 +121,34 @@ def parse_nyaapantsu_xml(key):
                                     title,
                                     number,
                                 )
-                                flag = True
-                    if not flag:
-                        for raw in parser_data['raws']:
-                            if raw in torrent:
-                                update_or_get_parser_data(
-                                    key,
-                                    torrent
-                                )
-                                get_magnet(
-                                    torrents[torrent],
-                                    torrent,
-                                    title,
-                                    number,
-                                )
-                                flag = True
 
 
-def parse_erai_raws_or_subsplease(key: str):
+def parse_erai_raws_or_subsplease(key: str, master: ttk.Window):
     parser_data = update_or_get_parser_data(get=True)
     url = get_config()['URLS'][f'{key}_xml']
+    try:
+        if '_' in key:
+            resolution = parser_data['resolutions'][key.replace('_', '-')]
+            res = RESOLUTIONS_DICT[resolution]
+            url = url.replace('?res=720p', f'?res={res}')
+        else:
+            resolution = parser_data['resolutions'][key]
+            res = RESOLUTIONS_DICT[resolution]
+            url = url.replace('?r=720', f'?r={res.replace("p", "").lower()}')
+    except KeyError:
+        res = '720p'
     response = requests.get(url)
     doc = xml.parseString(response.text)
     title_tags = doc.getElementsByTagName('title')
     link_tags = doc.getElementsByTagName('link')
     if key == 'erai_raws':
         tag_1 = '[Magnet] '
-        tag_2 = ' [720p]'
+        tag_2 = f' [{res}]'
         author = 'erai-raws'
         name = 'Erai-raws'
     elif key == 'subsplease':
         tag_1 = '[SubsPlease] '
-        tag_2 = ' (720p)'
+        tag_2 = f' ({res})'
         author = 'subsplease'
         name = 'SubsPlease'
     torrents = {}
@@ -159,7 +160,6 @@ def parse_erai_raws_or_subsplease(key: str):
     for torrent in torrents:
         for title in parser_data['titles']:
             if title in torrent:
-                flag = False
                 if torrent not in parser_data[author]:
                     for relation in parser_data['relations']:
                         if relation.split('->')[-1] == name:
@@ -168,7 +168,8 @@ def parse_erai_raws_or_subsplease(key: str):
                                 number = number[1]
                                 update_or_get_parser_data(
                                     author,
-                                    torrent
+                                    torrent,
+                                    master=master,
                                 )
                                 get_magnet(
                                     torrents[torrent],
@@ -176,38 +177,24 @@ def parse_erai_raws_or_subsplease(key: str):
                                     title,
                                     number,
                                 )
-                                flag = True
-                    if not flag:
-                        if name in parser_data['raws']:
-                            update_or_get_parser_data(
-                                author,
-                                torrent
-                            )
-                            get_magnet(
-                                torrents[torrent],
-                                torrent,
-                                title,
-                                number,
-                            )
-                            flag = True
 
 
-def parse():
+def parse(master: ttk.Window):
     while get_config()['USER'].getboolean('status'):
         try:
-            parse_erai_raws_or_subsplease('erai_raws')
-            parse_erai_raws_or_subsplease('subsplease')
-            parse_nyaapantsu_xml('nyaapantsu')
+            parse_erai_raws_or_subsplease('erai_raws', master)
+            parse_erai_raws_or_subsplease('subsplease', master)
+            parse_nyaapantsu_xml('nyaapantsu', master)
         except Exception:
             tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
         finally:
             time.sleep(SLEEP_TIME)
 
 
-def toggle_switch():
+def toggle_switch(master: ttk.Window):
     if switch_var.get():
         status_change(True)
-        thread = Thread(target=parse)
+        thread = Thread(target=parse, args=(master,))
         thread.start()
     else:
         status_change(False)
@@ -218,7 +205,7 @@ master.title(f'{NAME} v{VERSION:.2f}')
 master.geometry(set_geometry(master))
 master.resizable(False, False)
 master.iconbitmap(resource_path('ico.ico'))
-# master.protocol("WM_DELETE_WINDOW", lambda: go_to_tray(master))
+master.protocol("WM_DELETE_WINDOW", lambda: go_to_tray(master))
 
 img = Image.open(resource_path('background.png'))
 raw_img = ImageTk.PhotoImage(img)
@@ -235,7 +222,7 @@ switch = ttk.Checkbutton(
     variable=switch_var,
     bootstyle='success-round-toggle',
     name='"on / off" switch',
-    command=toggle_switch,
+    command=lambda: toggle_switch(master),
 )
 switch.place(relx=1.0, rely=1.0, anchor='se', x=-8, y=-10)
 switch_lbl = ttk.Label(master, text='ON / OFF', name='"on / off" label')

@@ -1,57 +1,87 @@
 # pyinstaller --noconfirm --noconsole --onefile --add-data 'background.png;.' --add-data 'ico.ico;.' --icon=ico.ico PantsuParser.py
 import requests
 from qbittorrent import Client
-import os
 import time
 import xml.dom.minidom as xml
 import ttkbootstrap as ttk
-from conf import get_config, status_change
-from set import settings
-from data import update_or_get_parser_data
-import sys
+from config import get_config, status_change
+from settings import settings
+from data import update_or_get_parser_data, path_choice, update_raw_select
+from utilitss import resource_path, set_geometry
+import os
 import tkinter
 from threading import Thread
 from ttkbootstrap.toast import ToastNotification
 from PIL import Image, ImageTk
 import tkinter.messagebox
 import traceback
+import pystray
 
 
 SLEEP_TIME = 60 * 5
-VERSION = 0.17
+VERSION = 0.31
 NAME = 'PantsuParser'
 
 
-def on_closing(master):
+def on_close(icon: pystray.Icon, master: ttk.Window):
+    icon.stop()
     master.destroy()
-    sys.exit()
+    os._exit(1)
 
 
-def resource_path(path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath('.')
-    return os.path.join(base_path, path)
+def on_open(icon: pystray.Icon, master: ttk.Window):
+    icon.stop()
+    master.after(0, master.deiconify)
 
 
-def get_magnet(magnet: str, episode: str, title: str):
+def go_to_tray(master: ttk.Window):
+    master.withdraw()
+    image = Image.open(resource_path('ico.ico'))
+    menu = (
+        pystray.MenuItem('Open', lambda: on_open(icon, master)),
+        pystray.MenuItem('Close', lambda: on_close(icon, master)),
+    )
+    icon = pystray.Icon(master.wm_title(), image, master.wm_title(), menu)
+    icon.run()
+
+
+def remove_torrent(qb: Client, title):
+    time.sleep(1)
+    flag = False
+    while not flag:
+        for i in qb.torrents():
+            if title in i['name']:
+                if i['progress'] != 1:
+                    break
+                else:
+                    qb.delete(i['hash'])
+                    flag = True
+        time.sleep(3)
+
+
+def get_magnet(
+        magnet: str,
+        episode: str,
+        title: str,
+        number: str,
+        ):
     qb = Client('http://127.0.0.1:8080/')
     qb.login('admin')
     parser_data = update_or_get_parser_data(get=True)
     kwargs = {'link': magnet}
-    print(title)
-    print(parser_data['downloads'])
     if title in parser_data['downloads']:
-        kwargs['savepath'] = parser_data['downloads'][title]
+        path = f'{parser_data["downloads"][title]}/{number}'
+        os.makedirs(path, exist_ok=True)
+        kwargs['savepath'] = path
     qb.download_from_link(**kwargs)
     toast = ToastNotification(
         title=NAME,
         message=f'Качаю {episode}',
         duration=6000,
-        alert=True,
         )
     toast.show_toast()
+    thread = Thread(target=remove_torrent, args=(qb, title))
+    thread.start()
 
 
 def parse_nyaapantsu_xml(key):
@@ -74,11 +104,18 @@ def parse_nyaapantsu_xml(key):
                     for relation in parser_data['relations']:
                         if relation.split('->')[-1] in torrent:
                             if relation.split('->')[0] in torrent:
+                                number = torrent.replace(title, '').split()
+                                number = number[1]
                                 update_or_get_parser_data(
                                     key,
                                     torrent
                                 )
-                                get_magnet(torrents[torrent], torrent, title)
+                                get_magnet(
+                                    torrents[torrent],
+                                    torrent,
+                                    title,
+                                    number,
+                                )
                                 flag = True
                     if not flag:
                         for raw in parser_data['raws']:
@@ -87,7 +124,12 @@ def parse_nyaapantsu_xml(key):
                                     key,
                                     torrent
                                 )
-                                get_magnet(torrents[torrent], torrent, title)
+                                get_magnet(
+                                    torrents[torrent],
+                                    torrent,
+                                    title,
+                                    number,
+                                )
                                 flag = True
 
 
@@ -122,11 +164,18 @@ def parse_erai_raws_or_subsplease(key: str):
                     for relation in parser_data['relations']:
                         if relation.split('->')[-1] == name:
                             if relation.split('->')[0] == title:
+                                number = torrent.replace(title, '').split()
+                                number = number[1]
                                 update_or_get_parser_data(
                                     author,
                                     torrent
                                 )
-                                get_magnet(torrents[torrent], torrent, title)
+                                get_magnet(
+                                    torrents[torrent],
+                                    torrent,
+                                    title,
+                                    number,
+                                )
                                 flag = True
                     if not flag:
                         if name in parser_data['raws']:
@@ -134,7 +183,12 @@ def parse_erai_raws_or_subsplease(key: str):
                                 author,
                                 torrent
                             )
-                            get_magnet(torrents[torrent], torrent, title)
+                            get_magnet(
+                                torrents[torrent],
+                                torrent,
+                                title,
+                                number,
+                            )
                             flag = True
 
 
@@ -159,73 +213,67 @@ def toggle_switch():
         status_change(False)
 
 
-def set_geometry(master: ttk.Window):
-    width = 369
-    height = 200
-    to_right = master.winfo_screenwidth() // 8
-    x = (master.winfo_screenwidth() - width) // 2
-    y = (master.winfo_screenheight() - height) // 2
-    return f'{width}x{height}+{x + to_right}+{y}'
-
-
 master = ttk.Window(themename='journal')
 master.title(f'{NAME} v{VERSION:.2f}')
 master.geometry(set_geometry(master))
 master.resizable(False, False)
 master.iconbitmap(resource_path('ico.ico'))
-master.protocol("WM_DELETE_WINDOW", lambda: on_closing(master))
+# master.protocol("WM_DELETE_WINDOW", lambda: go_to_tray(master))
 
 img = Image.open(resource_path('background.png'))
 raw_img = ImageTk.PhotoImage(img)
-background_label = tkinter.Label(master, image=raw_img)
+background_label = tkinter.Label(
+    master,
+    name='background_pic',
+    image=raw_img,
+)
 background_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-#frame = ttk.Frame(master, width=94, height=120, bootstyle='warning')
-#frame.place(relx=1.0, rely=1.0, anchor='se', x=-5, y=-75)
 
 switch_var = ttk.BooleanVar()
 switch = ttk.Checkbutton(
     master,
     variable=switch_var,
     bootstyle='success-round-toggle',
+    name='"on / off" switch',
     command=toggle_switch,
 )
-switch.place(relx=1.0, rely=1.0, anchor='se', x=-10, y=-10)
+switch.place(relx=1.0, rely=1.0, anchor='se', x=-8, y=-10)
+switch_lbl = ttk.Label(master, text='ON / OFF', name='"on / off" label')
+switch_lbl.place(relx=1.0, rely=1.0, anchor='se', x=-40, y=-9)
 
-ttl_entry = ttk.Entry(master, bootstyle='info', width=40)
+ttl_entry = ttk.Entry(
+    master,
+    bootstyle='info',
+    name='title name entry',
+    width=35,
+)
 ttl_entry.place(relx=0, rely=0, anchor='nw', x=10, y=10)
 
 add_ttl_bttn = ttk.Button(
     master,
     bootstyle='info',
     text='Add Title',
+    name='add title',
     width=10,
-    command=lambda: update_or_get_parser_data('titles', ttl_entry.get()),
+    command=lambda: update_or_get_parser_data(
+        'relations',
+        f'{ttl_entry.get()}->{raw_select.get()}',
+        master=master
+    ),
 )
 add_ttl_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=10)
 
-raw_entry = ttk.Entry(master, bootstyle='info', width=15)
-raw_entry.place(relx=0, rely=0, anchor='nw', x=160, y=50)
+raw_select = update_raw_select(master)
 
-add_raw_bttn = ttk.Button(
+save_bttn = ttk.Button(
     master,
     bootstyle='info',
-    text='Add Raw',
+    text='Save to...',
+    name='save_to',
     width=10,
-    command=lambda: update_or_get_parser_data('raws', raw_entry.get()),
+    command=lambda: path_choice(ttl_entry.get(), master=master),
 )
-add_raw_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=50)
-
-relation_bttn = ttk.Button(
-    master,
-    bootstyle='success',
-    text='Relation',
-    width=10,
-    command=lambda: update_or_get_parser_data(
-        'relations', f'{ttl_entry.get()}->{raw_entry.get()}'
-        ),
-)
-relation_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=90)
+save_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=50)
 
 sttngs_bttn = ttk.Button(
     master,
@@ -235,7 +283,8 @@ sttngs_bttn = ttk.Button(
     width=10,
     command=lambda: settings(master),
 )
-sttngs_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=130)
+sttngs_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=90)
+
 
 if __name__ == '__main__':
     master.focus_force()

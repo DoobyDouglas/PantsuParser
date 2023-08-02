@@ -3,7 +3,7 @@ import os
 from tkinter import filedialog
 import ttkbootstrap as ttk
 from tkinter import messagebox
-
+import tkinter
 
 DEFAULT_RAWS = [
     'Erai-raws',
@@ -23,18 +23,11 @@ RESOLUTIONS_DICT = {
 
 def update_resolutions(
         frame: ttk.Frame,
-        master: ttk.Window,
+        master: tkinter.Tk,
         ):
     rsltns_select = ['480', '720', '1080']
     raw_names = {0: 'Erai-raws', 1: 'SubsPlease'}
     parser_data = update_or_get_parser_data(get=True)
-    # if 'resolutions' not in parser_data:
-    #     with open('parser_data.json', 'r', encoding='utf-8') as json_file:
-    #         data = json.load(json_file)
-    #     data['resolutions'] = {}
-    #     with open('parser_data.json', 'w', encoding='utf-8') as json_file:
-    #         json.dump(data, json_file)
-    #     parser_data = update_or_get_parser_data(get=True)
     for i in range(2):
         kwargs = {}
         if raw_names[i].lower() in parser_data['resolutions']:
@@ -71,7 +64,7 @@ def update_resolutions(
         button.grid(row=i, column=2, pady=5, padx=5)
 
 
-def update_raw_select(master: ttk.Window):
+def update_raw_select(master: tkinter.Tk):
     parser_data = update_or_get_parser_data(get=True)
     raw_select = ttk.Combobox(
         master,
@@ -103,7 +96,7 @@ def update_raw_select(master: ttk.Window):
 
 
 def update_rsltns_raws(
-    master: ttk.Window = None,
+    master: tkinter.Tk = None,
         ):
     entry = master.nametowidget(
         'settings_toplevel.'
@@ -117,7 +110,7 @@ def update_rsltns_raws(
 def update_data_manager(
         event,
         frame: ttk.Frame,
-        master: ttk.Window = None,
+        master: tkinter.Tk = None,
         ):
     parser_data = update_or_get_parser_data(get=True)
     for widget in frame.winfo_children():
@@ -169,7 +162,7 @@ def update_downloads(frame: ttk.Frame):
         button.pack(side='right', padx=10)
 
 
-def update_main(master: ttk.Window, key: str):
+def update_main(master: tkinter.Tk, key: str):
     master.nametowidget('save_to').destroy()
     if key == 'save':
         text = 'Saved to'
@@ -196,7 +189,7 @@ def save_download_path(
         title: str,
         path: str,
         frame: ttk.Frame = None,
-        master: ttk.Window = None,
+        master: tkinter.Tk = None,
         ):
     with open('parser_data.json', 'r', encoding='utf-8') as json_file:
         data = json.load(json_file)
@@ -212,7 +205,7 @@ def save_download_path(
 def path_choice(
         title: str,
         frame: ttk.Frame = None,
-        master: ttk.Window = None,
+        master: tkinter.Tk = None,
         ):
     if not title:
         messagebox.showinfo('Нет названия', 'Сначала введите название')
@@ -251,7 +244,7 @@ def update_or_get_parser_data(
         get: bool = False,
         delete: bool = False,
         frame: ttk.Frame = None,
-        master: ttk.Window = None,
+        master: tkinter.Tk = None,
         ):
     if not os.path.exists('parser_data.json'):
         with open('parser_data.json', 'w', encoding='utf-8') as json_file:

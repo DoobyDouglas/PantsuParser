@@ -8,6 +8,7 @@ from data import (
 from utilitss import resource_path
 from functools import partial
 import json
+import tkinter
 
 
 def on_closing(window, master):
@@ -15,7 +16,7 @@ def on_closing(window, master):
     master.nametowidget('settings').configure(state='normal')
 
 
-def settings(master: ttk.Window):
+def settings(master: tkinter.Tk):
 
     def dwnlds_config(event):
         dwnlds_canvas.configure(scrollregion=dwnlds_canvas.bbox('all'))
@@ -64,11 +65,10 @@ def settings(master: ttk.Window):
     x = int(master_position[0]) + int(master_geometry_x) + 6
     y = master_position[1]
 
-    window = ttk.Toplevel(master=master, name='settings_toplevel')
+    window = tkinter.Toplevel(master=master, name='settings_toplevel')
     window.title('Settings')
     window.geometry(f'{master_geometry_x}x{master_geometry_y}+{x}+{y}')
     window.resizable(False, False)
-    window.iconbitmap(resource_path('ico.ico'))
     window.protocol("WM_DELETE_WINDOW", lambda: on_closing(window, master))
     window.bind("<Map>", on_open_window)
 

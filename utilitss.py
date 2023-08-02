@@ -1,6 +1,6 @@
 import os
 import sys
-import ttkbootstrap as ttk
+import tkinter
 
 
 def resource_path(path):
@@ -11,7 +11,7 @@ def resource_path(path):
     return os.path.join(base_path, path)
 
 
-def set_geometry(master: ttk.Window):
+def set_geometry(master: tkinter.Tk):
     width = 338
     height = 160
     to_right = master.winfo_screenwidth() // 8

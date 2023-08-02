@@ -1,11 +1,11 @@
-# pyinstaller --noconfirm --noconsole --onefile --add-data 'background.png;.' --add-data 'ico.ico;.' --icon=ico.ico PantsuParser.py
+# pyinstaller --noconfirm --noconsole --onefile --hidden-import plyer.platforms.win.notification --add-data 'background.png;.' --add-data 'ico.ico;.' --icon=ico.ico PantsuParser.py
 import requests
 from qbittorrent import Client
 import time
 import xml.dom.minidom as xml
 import ttkbootstrap as ttk
 from config import get_config, status_change
-from settings import settings
+from settings import settings, on_closing
 from data import (
     update_or_get_parser_data,
     path_choice,
@@ -16,30 +16,32 @@ from utilitss import resource_path, set_geometry
 import os
 import tkinter
 from threading import Thread
-from ttkbootstrap.toast import ToastNotification
 from PIL import Image, ImageTk
 import tkinter.messagebox
 import traceback
 import pystray
+from plyer import notification
+import tkinter
+from ttkbootstrap import Style
 
 
 SLEEP_TIME = 60 * 5
-VERSION = 0.36
+VERSION = 0.40
 NAME = 'PantsuParser'
 
 
-def on_close(icon: pystray.Icon, master: ttk.Window):
+def on_close(icon: pystray.Icon, master: tkinter.Tk):
     icon.stop()
     master.destroy()
     os._exit(1)
 
 
-def on_open(icon: pystray.Icon, master: ttk.Window):
+def on_open(icon: pystray.Icon, master: tkinter.Tk):
     icon.stop()
     master.after(0, master.deiconify)
 
 
-def go_to_tray(master: ttk.Window):
+def go_to_tray(master: tkinter.Tk):
     master.withdraw()
     image = Image.open(resource_path('ico.ico'))
     menu = (
@@ -47,6 +49,10 @@ def go_to_tray(master: ttk.Window):
         pystray.MenuItem('Close', lambda: on_close(icon, master)),
     )
     icon = pystray.Icon(master.wm_title(), image, master.wm_title(), menu)
+    try:
+        on_closing(master.nametowidget('settings_toplevel'), master)
+    except KeyError:
+        pass
     icon.run()
 
 
@@ -79,17 +85,19 @@ def get_magnet(
         os.makedirs(path, exist_ok=True)
         kwargs['savepath'] = path
     qb.download_from_link(**kwargs)
-    toast = ToastNotification(
+    notification.notify(
+        app_name=NAME,
         title=NAME,
         message=f'Качаю {episode}',
-        duration=6000,
-        )
-    toast.show_toast()
+        timeout=10,
+        app_icon=resource_path('ico.ico')
+    )
+
     thread = Thread(target=remove_torrent, args=(qb, title))
     thread.start()
 
 
-def parse_nyaapantsu_xml(key: str, master: ttk.Window):
+def parse_nyaapantsu_xml(key: str):
     parser_data = update_or_get_parser_data(get=True)
     url = get_config()['URLS'][f'{key}_xml']
     response = requests.get(url)
@@ -113,7 +121,6 @@ def parse_nyaapantsu_xml(key: str, master: ttk.Window):
                                 update_or_get_parser_data(
                                     key,
                                     torrent,
-                                    master=master,
                                 )
                                 get_magnet(
                                     torrents[torrent],
@@ -123,7 +130,7 @@ def parse_nyaapantsu_xml(key: str, master: ttk.Window):
                                 )
 
 
-def parse_erai_raws_or_subsplease(key: str, master: ttk.Window):
+def parse_erai_raws_or_subsplease(key: str):
     parser_data = update_or_get_parser_data(get=True)
     url = get_config()['URLS'][f'{key}_xml']
     try:
@@ -169,7 +176,6 @@ def parse_erai_raws_or_subsplease(key: str, master: ttk.Window):
                                 update_or_get_parser_data(
                                     author,
                                     torrent,
-                                    master=master,
                                 )
                                 get_magnet(
                                     torrents[torrent],
@@ -179,33 +185,35 @@ def parse_erai_raws_or_subsplease(key: str, master: ttk.Window):
                                 )
 
 
-def parse(master: ttk.Window):
+def parse():
     while get_config()['USER'].getboolean('status'):
         try:
-            parse_erai_raws_or_subsplease('erai_raws', master)
-            parse_erai_raws_or_subsplease('subsplease', master)
-            parse_nyaapantsu_xml('nyaapantsu', master)
+            parse_erai_raws_or_subsplease('erai_raws')
+            parse_erai_raws_or_subsplease('subsplease')
+            parse_nyaapantsu_xml('nyaapantsu')
         except Exception:
             tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
         finally:
             time.sleep(SLEEP_TIME)
 
 
-def toggle_switch(master: ttk.Window):
+def toggle_switch():
     if switch_var.get():
         status_change(True)
-        thread = Thread(target=parse, args=(master,))
+        thread = Thread(target=parse)
         thread.start()
     else:
         status_change(False)
 
 
-master = ttk.Window(themename='journal')
+master = tkinter.Tk()
 master.title(f'{NAME} v{VERSION:.2f}')
 master.geometry(set_geometry(master))
 master.resizable(False, False)
-master.iconbitmap(resource_path('ico.ico'))
+master.iconbitmap(default=resource_path('ico.ico'))
 master.protocol("WM_DELETE_WINDOW", lambda: go_to_tray(master))
+
+style = Style(theme='journal')
 
 img = Image.open(resource_path('background.png'))
 raw_img = ImageTk.PhotoImage(img)
@@ -222,7 +230,7 @@ switch = ttk.Checkbutton(
     variable=switch_var,
     bootstyle='success-round-toggle',
     name='"on / off" switch',
-    command=lambda: toggle_switch(master),
+    command=toggle_switch,
 )
 switch.place(relx=1.0, rely=1.0, anchor='se', x=-8, y=-10)
 switch_lbl = ttk.Label(master, text='ON / OFF', name='"on / off" label')
@@ -244,7 +252,7 @@ add_ttl_bttn = ttk.Button(
     width=10,
     command=lambda: update_or_get_parser_data(
         'relations',
-        f'{ttl_entry.get()}->{raw_select.get()}',
+        f'{ttl_entry.get().strip()}->{raw_select.get()}',
         master=master
     ),
 )

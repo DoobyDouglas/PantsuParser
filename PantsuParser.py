@@ -4,7 +4,7 @@ from qbittorrent import Client
 import time
 import xml.dom.minidom as xml
 import ttkbootstrap as ttk
-from config import get_config, status_change
+from config import get_config, write_config
 from settings import settings, on_closing
 from data import (
     update_or_get_parser_data,
@@ -18,15 +18,15 @@ import tkinter
 from threading import Thread
 from PIL import Image, ImageTk
 import tkinter.messagebox
-import traceback
 import pystray
 from plyer import notification
 import tkinter
 from ttkbootstrap import Style
+from qb_finder import qb_finder
 
 
 SLEEP_TIME = 60 * 5
-VERSION = 0.40
+VERSION = 0.45
 NAME = 'PantsuParser'
 
 
@@ -192,18 +192,19 @@ def parse():
             parse_erai_raws_or_subsplease('subsplease')
             parse_nyaapantsu_xml('nyaapantsu')
         except Exception:
-            tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
+            # tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
+            pass
         finally:
             time.sleep(SLEEP_TIME)
 
 
 def toggle_switch():
     if switch_var.get():
-        status_change(True)
+        write_config('status', True)
         thread = Thread(target=parse)
         thread.start()
     else:
-        status_change(False)
+        write_config('status', False)
 
 
 master = tkinter.Tk()
@@ -282,5 +283,6 @@ sttngs_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=90)
 
 
 if __name__ == '__main__':
+    qb_finder(master)
     master.focus_force()
     master.mainloop()

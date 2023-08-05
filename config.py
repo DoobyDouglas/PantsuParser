@@ -9,9 +9,9 @@ subsplease_xml = 'https://subsplease.org/rss/?r=720'
 nyaapantsu_xml = 'https://ouo.si/feed/magnet'
 
 
-def status_change(status: bool) -> None:
+def write_config(key: str, value: str or bool) -> None:
     config = get_config()
-    config['USER']['status'] = str(status)
+    config['USER'][key] = str(value)
     with open('PANTSUPARSER.ini', 'w', encoding='utf-8') as config_file:
         config.write(config_file)
 

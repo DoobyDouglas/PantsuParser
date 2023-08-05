@@ -1,6 +1,20 @@
 import os
 import sys
 import tkinter
+import time
+import subprocess
+
+
+def wait():
+    pass
+
+
+def qb_strt_and_main_wndw_rtrn(master: tkinter.Tk, path: str):
+    subprocess.Popen(path)
+    time.sleep(1)
+    master.wm_attributes('-topmost', 1)
+    master.wm_attributes('-topmost', 0)
+    master.focus_force()
 
 
 def resource_path(path):

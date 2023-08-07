@@ -2,15 +2,12 @@ import os
 import tkinter
 from config import get_config, write_config
 from utilitss import qb_strt_and_main_wndw_rtrn
+from const import ROOTS, QB_EXE
 import psutil
 from threading import Thread
 from utilitss import wait
 import ttkbootstrap as ttk
 import tkinter.messagebox
-
-
-ROOTS = 'abcdefghijklmnopqrstuvwxyz'
-QB_EXE = 'qbittorrent.exe'
 
 
 def is_qb_running(path: str = None):

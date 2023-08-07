@@ -2,17 +2,16 @@
 import requests
 from qbittorrent import Client
 import time
-import xml.dom.minidom as xml
-import ttkbootstrap as ttk
+import ttkbootstrap as tb
 from config import get_config, write_config
 from settings import settings, on_closing
 from data import (
     update_or_get_parser_data,
     path_choice,
     update_raw_select,
-    RESOLUTIONS_DICT,
 )
 from utilitss import resource_path, set_geometry
+from parse import parse_erai_raws_or_subsplease, parse_nyaapantsu_xml
 import os
 import tkinter
 from threading import Thread
@@ -23,11 +22,7 @@ from plyer import notification
 import tkinter
 from ttkbootstrap import Style
 from qb_finder import qb_finder
-
-
-SLEEP_TIME = 60 * 5
-VERSION = 0.45
-NAME = 'PantsuParser'
+from const import NAME, VERSION, SLEEP_TIME
 
 
 def on_close(icon: pystray.Icon, master: tkinter.Tk):
@@ -54,135 +49,6 @@ def go_to_tray(master: tkinter.Tk):
     except KeyError:
         pass
     icon.run()
-
-
-def remove_torrent(qb: Client, title):
-    time.sleep(1)
-    flag = False
-    while not flag:
-        for i in qb.torrents():
-            if title in i['name']:
-                if i['progress'] != 1:
-                    break
-                else:
-                    qb.delete(i['hash'])
-                    flag = True
-        time.sleep(3)
-
-
-def get_magnet(
-        magnet: str,
-        episode: str,
-        title: str,
-        number: str,
-        ):
-    qb = Client('http://127.0.0.1:8080/')
-    qb.login('admin')
-    parser_data = update_or_get_parser_data(get=True)
-    kwargs = {'link': magnet}
-    if title in parser_data['downloads']:
-        path = f'{parser_data["downloads"][title]}/{number}'
-        os.makedirs(path, exist_ok=True)
-        kwargs['savepath'] = path
-    qb.download_from_link(**kwargs)
-    notification.notify(
-        app_name=NAME,
-        title=NAME,
-        message=f'Качаю {episode}',
-        timeout=10,
-        app_icon=resource_path('ico.ico')
-    )
-
-    thread = Thread(target=remove_torrent, args=(qb, title))
-    thread.start()
-
-
-def parse_nyaapantsu_xml(key: str):
-    parser_data = update_or_get_parser_data(get=True)
-    url = get_config()['URLS'][f'{key}_xml']
-    response = requests.get(url)
-    doc = xml.parseString(response.text)
-    title_tags = doc.getElementsByTagName('title')
-    link_tags = doc.getElementsByTagName('link')
-    torrents = {}
-    for i in range(len(link_tags)):
-        title = title_tags[i].firstChild.nodeValue.split('[GJ.Y] ')[-1]
-        if 'nyaa pantsu' not in title.lower():
-            torrents[title] = link_tags[i].firstChild.nodeValue
-    for torrent in torrents:
-        for title in parser_data['titles']:
-            if title in torrent:
-                if torrent not in parser_data['nyaapantsu']:
-                    for relation in parser_data['relations']:
-                        if relation.split('->')[-1] in torrent:
-                            if relation.split('->')[0] in torrent:
-                                number = torrent.replace(title, '').split()
-                                number = number[1]
-                                update_or_get_parser_data(
-                                    key,
-                                    torrent,
-                                )
-                                get_magnet(
-                                    torrents[torrent],
-                                    torrent,
-                                    title,
-                                    number,
-                                )
-
-
-def parse_erai_raws_or_subsplease(key: str):
-    parser_data = update_or_get_parser_data(get=True)
-    url = get_config()['URLS'][f'{key}_xml']
-    try:
-        if '_' in key:
-            resolution = parser_data['resolutions'][key.replace('_', '-')]
-            res = RESOLUTIONS_DICT[resolution]
-            url = url.replace('?res=720p', f'?res={res}')
-        else:
-            resolution = parser_data['resolutions'][key]
-            res = RESOLUTIONS_DICT[resolution]
-            url = url.replace('?r=720', f'?r={res.replace("p", "").lower()}')
-    except KeyError:
-        res = '720p'
-    response = requests.get(url)
-    doc = xml.parseString(response.text)
-    title_tags = doc.getElementsByTagName('title')
-    link_tags = doc.getElementsByTagName('link')
-    if key == 'erai_raws':
-        tag_1 = '[Magnet] '
-        tag_2 = f' [{res}]'
-        author = 'erai-raws'
-        name = 'Erai-raws'
-    elif key == 'subsplease':
-        tag_1 = '[SubsPlease] '
-        tag_2 = f' ({res})'
-        author = 'subsplease'
-        name = 'SubsPlease'
-    torrents = {}
-    for i in range(len(link_tags)):
-        title = title_tags[i].firstChild.nodeValue.split(tag_1)[-1]
-        title = title.split(tag_2)[0]
-        if author not in title.lower():
-            torrents[title] = link_tags[i].firstChild.nodeValue
-    for torrent in torrents:
-        for title in parser_data['titles']:
-            if title in torrent:
-                if torrent not in parser_data[author]:
-                    for relation in parser_data['relations']:
-                        if relation.split('->')[-1] == name:
-                            if relation.split('->')[0] == title:
-                                number = torrent.replace(title, '').split()
-                                number = number[1]
-                                update_or_get_parser_data(
-                                    author,
-                                    torrent,
-                                )
-                                get_magnet(
-                                    torrents[torrent],
-                                    torrent,
-                                    title,
-                                    number,
-                                )
 
 
 def parse():
@@ -225,8 +91,8 @@ background_label = tkinter.Label(
 )
 background_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-switch_var = ttk.BooleanVar()
-switch = ttk.Checkbutton(
+switch_var = tb.BooleanVar()
+switch = tb.Checkbutton(
     master,
     variable=switch_var,
     bootstyle='success-round-toggle',
@@ -234,10 +100,10 @@ switch = ttk.Checkbutton(
     command=toggle_switch,
 )
 switch.place(relx=1.0, rely=1.0, anchor='se', x=-8, y=-10)
-switch_lbl = ttk.Label(master, text='ON / OFF', name='"on / off" label')
+switch_lbl = tb.Label(master, text='ON / OFF', name='"on / off" label')
 switch_lbl.place(relx=1.0, rely=1.0, anchor='se', x=-40, y=-9)
 
-ttl_entry = ttk.Entry(
+ttl_entry = tb.Entry(
     master,
     bootstyle='info',
     name='title name entry',
@@ -245,7 +111,7 @@ ttl_entry = ttk.Entry(
 )
 ttl_entry.place(relx=0, rely=0, anchor='nw', x=10, y=10)
 
-add_ttl_bttn = ttk.Button(
+add_ttl_bttn = tb.Button(
     master,
     bootstyle='info',
     text='Add Title',
@@ -261,7 +127,7 @@ add_ttl_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=10)
 
 raw_select = update_raw_select(master)
 
-save_bttn = ttk.Button(
+save_bttn = tb.Button(
     master,
     bootstyle='info',
     text='Save to...',
@@ -271,7 +137,7 @@ save_bttn = ttk.Button(
 )
 save_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=50)
 
-sttngs_bttn = ttk.Button(
+sttngs_bttn = tb.Button(
     master,
     bootstyle='primary',
     text='Settings',

@@ -1,24 +1,10 @@
 import json
 import os
 from tkinter import filedialog
+from const import DEFAULT_RAWS
 import ttkbootstrap as ttk
 from tkinter import messagebox
 import tkinter
-
-DEFAULT_RAWS = [
-    'Erai-raws',
-    'SubsPlease',
-    'B-Global',
-    'Sentai',
-    'Baha',
-    'CR',
-]
-
-RESOLUTIONS_DICT = {
-    '480': 'SD',
-    '720': '720p',
-    '1080': '1080p',
-}
 
 
 def update_resolutions(

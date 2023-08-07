@@ -1,12 +1,5 @@
 import configparser
-
-
-erai_raws_xml = (
-    'https://www.erai-raws.info/feed/?res=720p'
-    '&type=magnet&0879fd62733b8db8535eb1be24e23f6d'
-)
-subsplease_xml = 'https://subsplease.org/rss/?r=720'
-nyaapantsu_xml = 'https://ouo.si/feed/magnet'
+from const import erai_raws_xml, subsplease_xml, nyaapantsu_xml
 
 
 def write_config(key: str, value: str or bool) -> None:

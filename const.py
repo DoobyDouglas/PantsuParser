@@ -1,4 +1,4 @@
-VERSION = 0.47
+VERSION = 0.53
 NAME = 'PantsuParser'
 ROOTS = 'abcdefghijklmnopqrstuvwxyz'
 QB_EXE = 'qbittorrent.exe'

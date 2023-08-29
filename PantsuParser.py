@@ -19,10 +19,12 @@ from PIL import Image, ImageTk
 import tkinter.messagebox
 import pystray
 from plyer import notification
-import tkinter
 from ttkbootstrap import Style
+from tkinter import TclError
 from qb_finder import qb_finder
 from const import NAME, VERSION, SLEEP_TIME
+from models import Downloader
+import locale
 
 
 def on_close(icon: pystray.Icon, master: tkinter.Tk):
@@ -51,12 +53,37 @@ def go_to_tray(master: tkinter.Tk):
     icon.run()
 
 
+def if_rus_keys(event: tkinter.Event):
+    try:
+        if event.state == 4:
+            if event.keycode == 86:
+                if ttl_entry.selection_present():
+                    ttl_entry.delete(tkinter.SEL_FIRST, tkinter.SEL_LAST)
+                    ttl_entry.insert(tkinter.INSERT, master.clipboard_get())
+                else:
+                    ttl_entry.insert(
+                        ttl_entry.index(tkinter.INSERT),
+                        master.clipboard_get()
+                    )
+            elif event.keycode == 65:
+                ttl_entry.selection_range(0, tkinter.END)
+            elif event.keycode == 67:
+                if ttl_entry.selection_present():
+                    master.clipboard_clear()
+                    master.clipboard_append(ttl_entry.selection_get())
+                    master.update()
+    except TclError:
+        pass
+
+
 def parse():
     while get_config()['USER'].getboolean('status'):
         try:
-            parse_erai_raws_or_subsplease('erai_raws')
-            parse_erai_raws_or_subsplease('subsplease')
-            parse_nyaapantsu_xml('nyaapantsu')
+            downloader = Downloader()
+            locale.setlocale(locale.LC_TIME, 'en_US')
+            parse_erai_raws_or_subsplease('erai_raws', downloader)
+            parse_erai_raws_or_subsplease('subsplease', downloader)
+            parse_nyaapantsu_xml('nyaapantsu', downloader)
         except Exception:
             # tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
             pass
@@ -78,7 +105,7 @@ master.title(f'{NAME} v{VERSION:.2f}')
 master.geometry(set_geometry(master))
 master.resizable(False, False)
 master.iconbitmap(default=resource_path('ico.ico'))
-master.protocol("WM_DELETE_WINDOW", lambda: go_to_tray(master))
+master.protocol('WM_DELETE_WINDOW', lambda: go_to_tray(master))
 
 style = Style(theme='journal')
 
@@ -110,6 +137,7 @@ ttl_entry = tb.Entry(
     width=35,
 )
 ttl_entry.place(relx=0, rely=0, anchor='nw', x=10, y=10)
+ttl_entry.bind('<Key>', if_rus_keys)
 
 add_ttl_bttn = tb.Button(
     master,
@@ -146,7 +174,6 @@ sttngs_bttn = tb.Button(
     command=lambda: settings(master),
 )
 sttngs_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=90)
-
 
 if __name__ == '__main__':
     qb_finder(master)

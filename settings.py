@@ -5,13 +5,12 @@ from data import (
     update_data_manager,
     update_resolutions,
 )
-from utilitss import resource_path
 from functools import partial
 import json
 import tkinter
 
 
-def on_closing(window, master):
+def on_closing(window: tkinter.Toplevel, master: tkinter.Tk):
     window.destroy()
     master.nametowidget('settings').configure(state='normal')
 
@@ -41,7 +40,7 @@ def settings(master: tkinter.Tk):
         except KeyError:
             pass
 
-    def on_open_window(event):
+    def on_open_window(event):  # тут дабл + на 50 добавить выбор конфига pass
         try:
             tab_index = notebook.index(notebook.select())
             scroll_handlers[tab_index](None)

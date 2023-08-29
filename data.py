@@ -66,7 +66,7 @@ def update_raw_select(master: tkinter.Tk):
         for raw in DEFAULT_RAWS:
             data['raws'].append(raw)
         with open('parser_data.json', 'w', encoding='utf-8') as json_file:
-            json.dump(data, json_file)
+            json.dump(data, json_file, ensure_ascii=False)
         parser_data = update_or_get_parser_data(get=True)
         update_raw_select(master)
         try:
@@ -181,7 +181,7 @@ def save_download_path(
         data = json.load(json_file)
     data['downloads'][title] = path
     with open('parser_data.json', 'w', encoding='utf-8') as json_file:
-        json.dump(data, json_file)
+        json.dump(data, json_file, ensure_ascii=False)
     if frame:
         update_downloads(frame)
     elif master:
@@ -244,7 +244,7 @@ def update_or_get_parser_data(
                 'subsplease': [],
                 'resolutions': {},
             }
-            json.dump(parser_data, json_file)
+            json.dump(parser_data, json_file, ensure_ascii=False)
     with open('parser_data.json', 'r', encoding='utf-8') as json_file:
         data = json.load(json_file)
     if get:
@@ -269,7 +269,7 @@ def update_or_get_parser_data(
             else:
                 data[key].append(value)
     with open('parser_data.json', 'w', encoding='utf-8') as json_file:
-        json.dump(data, json_file)
+        json.dump(data, json_file, ensure_ascii=False)
     if frame:
         update_data_manager(None, frame, master=master)
     if master:

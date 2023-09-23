@@ -14,17 +14,20 @@ from utilitss import resource_path, set_geometry
 from parse import parse_erai_raws_or_subsplease, parse_nyaapantsu_xml
 import os
 import tkinter
+import traceback
 from threading import Thread
 from PIL import Image, ImageTk
 import tkinter.messagebox
 import pystray
 from plyer import notification
 from ttkbootstrap import Style
+from loguru import logger
 from tkinter import TclError
 from qb_finder import qb_finder
 from const import NAME, VERSION, SLEEP_TIME
 from models import Downloader
 import locale
+import ctypes
 
 
 def on_close(icon: pystray.Icon, master: tkinter.Tk):
@@ -54,6 +57,12 @@ def go_to_tray(master: tkinter.Tk):
 
 
 def if_rus_keys(event: tkinter.Event):
+    keyboard = getattr(
+        ctypes.windll.LoadLibrary('user32.dll'),
+        'GetKeyboardLayout'
+    )
+    if hex(keyboard(0)) != '0x4190419':
+        return
     try:
         if event.state == 4:
             if event.keycode == 86:
@@ -85,8 +94,7 @@ def parse():
             parse_erai_raws_or_subsplease('subsplease', downloader)
             parse_nyaapantsu_xml('nyaapantsu', downloader)
         except Exception:
-            # tkinter.messagebox.showerror('Ошибка', traceback.format_exc())
-            pass
+            logger.error(f'Ошибка: {traceback.format_exc()}')
         finally:
             time.sleep(SLEEP_TIME)
 
@@ -174,6 +182,9 @@ sttngs_bttn = tb.Button(
     command=lambda: settings(master),
 )
 sttngs_bttn.place(relx=1.0, rely=0, anchor='ne', x=-10, y=90)
+
+logger.add('PantsuParserLOG.log', encoding='utf-8')
+
 
 if __name__ == '__main__':
     qb_finder(master)
